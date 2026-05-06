@@ -1,15 +1,16 @@
 package com.quizshare.service;
 
-import com.google.cloud.storage.BlobId;
-import com.google.cloud.storage.BlobInfo;
-import com.google.cloud.storage.Storage;
 import com.quizshare.config.StorageConfig;
 import com.quizshare.exception.AppException;
 import com.quizshare.exception.ErrorCode;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.lang.Nullable;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -17,6 +18,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -24,15 +26,12 @@ import java.util.UUID;
 public class FileStorageService {
 
     private final StorageConfig storageConfig;
-
-    @Nullable
-    private final Storage googleStorage;
+    private final RestTemplate restTemplate;
 
     @Autowired
-    public FileStorageService(StorageConfig storageConfig,
-                               @Nullable Storage googleStorage) {
+    public FileStorageService(StorageConfig storageConfig, RestTemplate restTemplate) {
         this.storageConfig = storageConfig;
-        this.googleStorage = googleStorage;
+        this.restTemplate = restTemplate;
     }
 
     private static final List<String> ALLOWED_CONTENT_TYPES = List.of(
@@ -43,11 +42,10 @@ public class FileStorageService {
         validateFile(file);
 
         String storageType = storageConfig.getType();
-        if ("gcs".equalsIgnoreCase(storageType) && googleStorage != null) {
-            return uploadToGcs(file, folderName, fileName);
-        } else {
-            return uploadToLocal(file, folderName, fileName);
-        }
+        return switch (storageType.toLowerCase()) {
+            case "cloudinary" -> uploadToCloudinary(file, folderName);
+            default -> uploadToLocal(file, folderName, fileName);
+        };
     }
 
     private void validateFile(MultipartFile file) {
@@ -61,18 +59,42 @@ public class FileStorageService {
         }
     }
 
-    private String uploadToGcs(MultipartFile file, String folderName, String fileName) {
+    @SuppressWarnings("unchecked")
+    private String uploadToCloudinary(MultipartFile file, String folderName) {
         try {
-            String objectName = buildObjectName(folderName, fileName, file);
-            BlobId blobId = BlobId.of(storageConfig.getGcs().getBucketName(), objectName);
-            BlobInfo blobInfo = BlobInfo.newBuilder(blobId)
-                    .setContentType(file.getContentType())
-                    .build();
-            googleStorage.create(blobInfo, file.getBytes());
-            return String.format("https://storage.googleapis.com/%s/%s",
-                    storageConfig.getGcs().getBucketName(), objectName);
-        } catch (IOException e) {
-            log.error("GCS upload failed: {}", e.getMessage());
+            StorageConfig.CloudinaryProperties config = storageConfig.getCloudinary();
+            String uploadUrl = "https://api.cloudinary.com/v1_1/" + config.getCloudName() + "/upload";
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+
+            byte[] bytes = file.getBytes();
+            ByteArrayResource fileResource = new ByteArrayResource(bytes) {
+                @Override
+                public String getFilename() {
+                    return file.getOriginalFilename() != null
+                            ? file.getOriginalFilename()
+                            : UUID.randomUUID() + ".jpg";
+                }
+            };
+
+            MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+            body.add("file", fileResource);
+            body.add("upload_preset", config.getUploadPreset());
+            body.add("folder", folderName);
+
+            HttpEntity<MultiValueMap<String, Object>> request = new HttpEntity<>(body, headers);
+            ResponseEntity<Map> response = restTemplate.exchange(uploadUrl, HttpMethod.POST, request, Map.class);
+
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                String secureUrl = (String) response.getBody().get("secure_url");
+                if (secureUrl != null) return secureUrl;
+            }
+            throw new AppException(ErrorCode.FILE_UPLOAD_FAILED, "Cloudinary did not return a URL");
+        } catch (AppException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Cloudinary upload failed: {}", e.getMessage());
             throw new AppException(ErrorCode.FILE_UPLOAD_FAILED);
         }
     }

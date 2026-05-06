@@ -39,9 +39,6 @@ dependencies {
     runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
     runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
 
-    // Google Cloud Storage (tuỳ chọn — comment out nếu dùng MinIO/S3)
-    implementation 'com.google.cloud:google-cloud-storage:2.40.0'
-
     // Lombok
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
