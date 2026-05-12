@@ -23,6 +23,7 @@ public class ExamService {
     private final UserRepository userRepository;
     private final QuestionRepository questionRepository;
     private final AnswerRepository answerRepository;
+    private final SavedDepartmentRepository savedDepartmentRepository;
 
     public ListExamResult listExams(ListExamRequest request) {
         Subject subject = subjectRepository.findById(request.getSubjectId())
@@ -128,6 +129,16 @@ public class ExamService {
                     }
                 }
             }
+        }
+
+        // Gắn khoa của môn học vào saved_departments cho user tạo đề (nếu chưa có)
+        Department department = subject.getDepartment();
+        if (!savedDepartmentRepository.existsByUserIdAndDepartmentId(author.getId(), department.getId())) {
+            SavedDepartment savedDepartment = SavedDepartment.builder()
+                    .user(author)
+                    .department(department)
+                    .build();
+            savedDepartmentRepository.save(savedDepartment);
         }
 
         return "Exam created successfully";
