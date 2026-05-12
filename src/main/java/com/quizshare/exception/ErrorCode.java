@@ -26,7 +26,9 @@ public enum ErrorCode {
     PASSWORD_MISMATCH(400, "Passwords do not match", HttpStatus.BAD_REQUEST),
 
     DEPARTMENT_NOT_FOUND(404, "Department not found", HttpStatus.NOT_FOUND),
+    DEPARTMENT_HAS_SUBJECTS(400, "Cannot delete: department still has subjects", HttpStatus.BAD_REQUEST),
     SUBJECT_NOT_FOUND(404, "Subject not found", HttpStatus.NOT_FOUND),
+    SUBJECT_HAS_EXAMS(400, "Cannot delete: subject still has exams", HttpStatus.BAD_REQUEST),
     EXAM_NOT_FOUND(404, "Exam not found", HttpStatus.NOT_FOUND),
     EXAM_HISTORY_NOT_FOUND(404, "Exam history not found", HttpStatus.NOT_FOUND),
     QUESTION_NOT_FOUND(404, "Question not found", HttpStatus.NOT_FOUND),

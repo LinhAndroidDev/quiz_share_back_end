@@ -132,6 +132,7 @@ public class ExamHistoryService {
 
         return ExamHistoryDetailResult.builder()
                 .id(history.getId())
+                .examId(exam.getId())
                 .examTitle(exam.getTitle())
                 .description(exam.getDescription())
                 .subjectTitle(exam.getSubject().getTitle())

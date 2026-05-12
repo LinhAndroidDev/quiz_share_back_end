@@ -41,12 +41,15 @@ public class AuthService {
             throw new AppException(ErrorCode.PHONE_ALREADY_EXISTS);
         }
 
+        User.Role role = request.getRole() != null ? request.getRole() : User.Role.USER;
+
         User user = User.builder()
                 .email(request.getEmail())
                 .name(request.getName())
                 .phoneNumber(request.getPhoneNumber())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .birthday(parseBirthday(request.getBirthday()))
+                .role(role)
                 .build();
 
         user = userRepository.save(user);

@@ -38,6 +38,9 @@ public class FileStorageService {
             "image/jpeg", "image/jpg", "image/png", "image/webp"
     );
 
+    /** Thư mục mặc định trên Cloudinary / local khi gọi API upload ảnh chung */
+    public static final String DEFAULT_UPLOAD_FOLDER = "images";
+
     public String uploadFile(MultipartFile file, String folderName, String fileName) {
         validateFile(file);
 
