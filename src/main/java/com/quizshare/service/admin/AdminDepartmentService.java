@@ -6,14 +6,21 @@ import com.quizshare.dto.response.admin.AdminDepartmentItem;
 import com.quizshare.dto.response.admin.AdminPageResult;
 import com.quizshare.dto.response.admin.CreatedIdResult;
 import com.quizshare.entity.Department;
+import com.quizshare.entity.SavedDepartment;
+import com.quizshare.entity.User;
 import com.quizshare.exception.AppException;
 import com.quizshare.exception.ErrorCode;
 import com.quizshare.repository.DepartmentRepository;
+import com.quizshare.repository.SavedDepartmentRepository;
 import com.quizshare.repository.SubjectRepository;
+import com.quizshare.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -24,6 +31,8 @@ public class AdminDepartmentService {
 
     private final DepartmentRepository departmentRepository;
     private final SubjectRepository subjectRepository;
+    private final SavedDepartmentRepository savedDepartmentRepository;
+    private final UserRepository userRepository;
 
     public AdminPageResult<AdminDepartmentItem> getDepartments(int page, int size, String keyword) {
         Page<Department> depPage = departmentRepository.searchByKeywordPage(keyword, PageRequest.of(page, size));
@@ -38,6 +47,7 @@ public class AdminDepartmentService {
                 .build();
     }
 
+    @Transactional
     public CreatedIdResult createDepartment(CreateDepartmentRequest request) {
         Department department = Department.builder()
                 .title(request.getTitle())
@@ -45,6 +55,17 @@ public class AdminDepartmentService {
                 .image(request.getImage())
                 .build();
         department = departmentRepository.save(department);
+
+        User admin = resolveCurrentAdmin();
+        if (admin != null
+                && !savedDepartmentRepository.existsByUserIdAndDepartmentId(admin.getId(), department.getId())) {
+            SavedDepartment saved = SavedDepartment.builder()
+                    .user(admin)
+                    .department(department)
+                    .build();
+            savedDepartmentRepository.save(saved);
+        }
+
         return new CreatedIdResult(department.getId(), department.getTitle());
     }
 
@@ -81,5 +102,20 @@ public class AdminDepartmentService {
                 .subjectCount(subjectRepository.countByDepartmentId(d.getId()))
                 .createdAt(d.getCreatedAt())
                 .build();
+    }
+
+    /**
+     * Admin gọi API có JWT — lấy user hiện tại để gắn saved_departments.
+     */
+    private User resolveCurrentAdmin() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return null;
+        }
+        Object principal = authentication.getPrincipal();
+        if (!(principal instanceof User user)) {
+            return null;
+        }
+        return userRepository.findById(user.getId()).orElse(null);
     }
 }
