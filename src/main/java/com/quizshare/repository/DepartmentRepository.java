@@ -13,9 +13,9 @@ import java.util.List;
 @Repository
 public interface DepartmentRepository extends JpaRepository<Department, Long> {
 
-    @Query("SELECT d FROM Department d WHERE " +
+    @Query("SELECT d FROM Department d WHERE d.id IN :ids AND " +
            "(:keyword IS NULL OR :keyword = '' OR LOWER(d.title) LIKE LOWER(CONCAT('%', :keyword, '%')))")
-    List<Department> searchByKeyword(@Param("keyword") String keyword);
+    List<Department> searchByIdsAndKeyword(@Param("ids") List<Long> ids, @Param("keyword") String keyword);
 
     // Admin: paginated search
     @Query("SELECT d FROM Department d WHERE " +

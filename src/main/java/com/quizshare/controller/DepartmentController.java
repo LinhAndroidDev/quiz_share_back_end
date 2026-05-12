@@ -23,7 +23,8 @@ public class DepartmentController {
     @PostMapping("/getDepartmentList")
     public ResponseEntity<BaseResponse<List<DepartmentResult>>> getDepartmentList(
             @Valid @RequestBody GetDepartmentListRequest request) {
-        List<DepartmentResult> result = departmentService.getDepartmentList(request.getKeyword());
+        List<DepartmentResult> result = departmentService.getDepartmentList(
+                request.getUserId(), request.getKeyword());
         return ResponseEntity.ok(BaseResponse.success(result));
     }
 
